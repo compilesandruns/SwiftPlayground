@@ -20,39 +20,109 @@ class GameViewController: UIViewController {
     }
 }
 
+func + (left: CGPoint, right: CGPoint) -> CGPoint {
+    return CGPoint(x: left.x + right.x, y: left.y + right.y)
+}
+
+func - (left: CGPoint, right: CGPoint) -> CGPoint {
+    return CGPoint(x: left.x - right.x, y: left.y - right.y)
+}
+
+func * (point: CGPoint, scalar: CGFloat) -> CGPoint {
+    return CGPoint(x: point.x * scalar, y: point.y * scalar)
+}
+
+func / (point: CGPoint, scalar: CGFloat) -> CGPoint {
+    return CGPoint(x: point.x / scalar, y: point.y / scalar)
+}
+
+#if !(arch(x86_64) || arch(arm64))
+    func sqrt(a: CGFloat) -> CGFloat {
+        return CGFloat(sqrtf(Float(a)))
+    }
+#endif
+
+extension CGPoint {
+    func length() -> CGFloat {
+        return sqrt(x*x + y*y)
+    }
+    
+    func normalized() -> CGPoint {
+        return self / length()
+    }
+}
+
 class GameScene: SKScene {
     
-    let line = SKShapeNode(circleOfRadius: 1.0)
+    let line = SKShapeNode(circleOfRadius: 5.0)
     
-//    override func didMove(to view: SKView) {
-//        backgroundColor = SKColor.white
-//
-//        line.position = CGPoint(x: size.width * 0.1, y: size.height * 0.5)
-//
-//        addChild(line)
-//
-//    }
+    override init(size: CGSize) {
+        super.init(size: size)
+        
+        backgroundColor = .black
+        
+        //Blur effect
+        let effectsNode = SKEffectNode()
+        let filter = CIFilter(name: "CIGaussianBlur")
+        let blurAmount = 10.0
+        filter?.setValue(blurAmount, forKey: kCIInputRadiusKey)
+        addChild(effectsNode)
+        
+        //Circle
+        let kaleidoscope = SKSpriteNode(color: .white, size: CGSize(width: size.height * 0.8, height: size.height * 0.8))
+        kaleidoscope.position = CGPoint(x: frame.width * 0.5, y:frame.height * 0.5)
+        addChild(kaleidoscope)
+        
+        
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func didMove(to view: SKView) {
+        line.position = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+        line.strokeColor = .purple
+        
+        addChild(line)
+
+    }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let touch = touches.first {
-            let location = touch.location(in: self)
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: location.x, y: location.y))
+        guard let touch = touches.first else {
+            return
         }
+        let touchLocation = touch.location(in: self)
+        
+        // 2 - Set up initial location of projectile
+        let forward = SKShapeNode(circleOfRadius: 3)
+        forward.strokeColor = .red
+        forward.position = line.position
+        
+        // 3 - Determine offset of location to projectile
+        let offset = touchLocation - forward.position
+    
+        
+        // 5 - OK to add now - you've double checked position
+        addChild(forward)
+        
+        // 6 - Get the direction of where to shoot
+        let direction = offset.normalized()
+        
+        // 7 - Make it shoot far enough to be guaranteed off screen
+        let shootAmount = direction * 1000
+        
+        // 8 - Add the shoot amount to the current position
+        let realDest = shootAmount + forward.position
+        
+        // 9 - Create the actions
+        let actionMove = SKAction.move(to: realDest, duration: 2.0)
+        let actionMoveDone = SKAction.removeFromParent()
+        forward.run(SKAction.sequence([actionMove, actionMoveDone]))
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            let locationInScene = touch.location(in: self)
-            var line = SKShapeNode()
-            let path = CGMutablePath()
-            path.addLine(to: CGPoint(x: locationInScene.x, y: locationInScene.y))
-            line.path = path
-            line.lineWidth = 4
-            line.fillColor = UIColor.red
-            line.strokeColor = UIColor.red
-            self.addChild(line)
-        }
+
     }
 }
 
